@@ -1,0 +1,66 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: news_app
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    networks:
+      - news_network
+
+  db:
+    image: postgres:16-alpine
+    container_name: news_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-news_moods}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - news_db_data:/var/lib/postgresql/data
+    networks:
+      - news_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: news_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - news_network
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: news_scheduler
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+    env_file:
+      - .env
+    depends_on:
+      - app
+      - db
+    command: php artisan schedule:work
+    networks:
+      - news_network
+
+networks:
+  news_network:
+    driver: bridge
+
+volumes:
+  news_db_data:
